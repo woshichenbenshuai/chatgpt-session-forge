@@ -16,6 +16,7 @@ It can import Outlook accounts, fetch OpenAI verification codes through IMAP or 
 - sub2api export in grouped JSON format
 - Cockpit export as a flat Codex token JSON array accepted by `cockpit-tools`
 - CPA warehouse: scan CLIProxyAPI 401 credentials, relogin for fresh CPA JSON, and delete deactivated accounts
+- Codex-Manager integration: import locally successful ChatGPT sessions into a Codex-Manager account pool
 - Session converter for raw `https://chatgpt.com/api/auth/session` JSON
 - Optional outbound proxy support through environment variables or Windows proxy auto-detection
 

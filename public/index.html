@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="ChatGPT 自动登录凭证管理系统 - Outlook双协议取件 + 自动登录 + Session转换 + CPA仓管">
-  <title>ChatGPT 凭证管理 | 自动登录 + Session 转换 + CPA 仓管</title>
+  <meta name="description" content="ChatGPT 自动登录凭证管理系统 - Outlook双协议取件 + 自动登录 + Session转换 + 仓管对接">
+  <title>ChatGPT 凭证管理 | 自动登录 + Session 转换 + 仓管对接</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -29,7 +29,7 @@
         </div>
         <div>
           <h1 class="app-title">ChatGPT 凭证管理</h1>
-          <p class="app-subtitle">Outlook 双协议取件 · 自动登录 · Session 转换 · CPA 仓管</p>
+          <p class="app-subtitle">Outlook 双协议取件 · 自动登录 · Session 转换 · 仓管对接</p>
         </div>
       </div>
       <a class="open-source-link" href="https://github.com/maowuzz/chatgpt-session-forge" target="_blank" rel="noopener noreferrer" title="查看 GitHub 开源仓库">
@@ -56,7 +56,7 @@
       </button>
       <button class="tab-btn" data-tab="warehouse" id="tabBtnWarehouse">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>
-        CPA 仓管
+        仓管对接
       </button>
       <button class="tab-btn" data-tab="logs" id="tabBtnLogs">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
@@ -294,7 +294,7 @@
       </div>
     </div>
 
-    <!-- ==================== Tab 4: CPA 仓管 ==================== -->
+    <!-- ==================== Tab 4: 仓管对接 ==================== -->
     <div class="tab-content" id="tab-warehouse">
       <section class="warehouse-section">
         <div class="warehouse-panel glass-panel">
@@ -366,6 +366,91 @@
                   <span class="log-time">--:--:--</span>
                   <span class="log-type info">INFO</span>
                   <span class="log-message">仓管日志就绪，等待扫描或修复...</span>
+                </div>
+              </div>
+            </section>
+          </div>
+        </div>
+
+        <div class="warehouse-panel glass-panel">
+          <div class="warehouse-header">
+            <div>
+              <h3>Codex-Manager 账号池导入</h3>
+              <p class="text-muted">扫描本地已登录成功的 ChatGPT Session，批量导入 Codex-Manager 账号池。</p>
+            </div>
+            <div class="warehouse-actions">
+              <div class="warehouse-status-pill idle" id="codexManagerStatus">
+                <span class="warehouse-status-dot"></span>
+                <span id="codexManagerStatusText">未连接</span>
+              </div>
+              <button class="btn btn-ghost btn-small" id="btnCodexManagerCheck">检查连接</button>
+              <button class="btn btn-ghost btn-small" id="btnCodexManagerScan">扫描成功账号</button>
+              <button class="btn btn-primary btn-small" id="btnCodexManagerImport">导入账号</button>
+            </div>
+          </div>
+          <div class="warehouse-config">
+            <div class="input-group">
+              <input type="text" id="codexManagerBaseUrl" class="input warehouse-input" value="http://localhost:17000" placeholder="Codex-Manager 地址" />
+            </div>
+            <div class="input-group flex-grow">
+              <input type="password" id="codexManagerRpcToken" class="input warehouse-input" placeholder="Codex-Manager RPC Token" autocomplete="off" />
+            </div>
+            <div class="input-group">
+              <input type="password" id="codexManagerWebPassword" class="input warehouse-input" placeholder="Web 访问密码（启用时填写）" autocomplete="off" />
+            </div>
+            <div class="input-group">
+              <input type="text" id="codexManagerWebUsername" class="input warehouse-input" placeholder="Web 用户名（账号模式时填写）" autocomplete="off" />
+            </div>
+            <div class="input-group warehouse-limit-group">
+              <span class="warehouse-limit-label">导入上限</span>
+              <input type="number" id="codexManagerMaxItems" class="input warehouse-input warehouse-limit-input" min="1" max="1000" value="1000" placeholder="最多导入数量" />
+            </div>
+            <label class="warehouse-auto-toggle">
+              <input type="checkbox" id="codexManagerAutoToggle" />
+              <span class="warehouse-toggle-track"><span class="warehouse-toggle-thumb"></span></span>
+              <span>自动导入</span>
+            </label>
+            <div class="input-group warehouse-interval-group">
+              <span class="warehouse-interval-label">导入间隔</span>
+              <input type="number" id="codexManagerAutoInterval" class="input warehouse-input warehouse-interval-input" min="1" max="1440" value="10" placeholder="分钟" />
+            </div>
+          </div>
+          <p class="text-muted" style="font-size:0.82rem">
+            Docker 部署时，如果 Codex-Manager 运行在宿主机 <code>17000</code> 端口，这里通常填写 <code>http://host.docker.internal:17000</code>。RPC Token 可从 Codex-Manager 的 <code>codexmanager.rpc-token</code> 文件读取；如果 Web 后台设置了访问密码，也需要填写 Web 访问密码。
+          </p>
+          <div class="warehouse-stats">
+            <div class="stat-card"><div class="stat-value" id="cmStatLocalSuccess">0</div><div class="stat-label">本地成功</div></div>
+            <div class="stat-card"><div class="stat-value" id="cmStatReady">0</div><div class="stat-label">可导入</div></div>
+            <div class="stat-card"><div class="stat-value" id="cmStatImported">0</div><div class="stat-label">已导入</div></div>
+            <div class="stat-card"><div class="stat-value" id="cmStatFailed">0</div><div class="stat-label">失败</div></div>
+          </div>
+          <div class="warehouse-workspace">
+            <div class="warehouse-table-wrapper">
+              <table class="warehouse-table">
+                <thead>
+                  <tr>
+                    <th>邮箱</th>
+                    <th>Account ID</th>
+                    <th>套餐</th>
+                    <th>处理结果</th>
+                  </tr>
+                </thead>
+                <tbody id="codexManagerTableBody">
+                  <tr><td colspan="4"><div class="empty-state" style="padding:40px 20px"><p>先扫描本地成功账号</p></div></td></tr>
+                </tbody>
+              </table>
+            </div>
+
+            <section class="log-section warehouse-log-panel">
+              <div class="log-header">
+                <h3>Codex-Manager 日志</h3>
+                <button class="btn btn-ghost btn-small log-clear-btn" id="btnClearCodexManagerLogs">清空</button>
+              </div>
+              <div class="log-list" id="codexManagerLogList">
+                <div class="log-entry">
+                  <span class="log-time">--:--:--</span>
+                  <span class="log-type info">INFO</span>
+                  <span class="log-message">Codex-Manager 对接日志就绪，等待扫描或导入...</span>
                 </div>
               </div>
             </section>

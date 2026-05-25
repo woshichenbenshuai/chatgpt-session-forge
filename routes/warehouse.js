@@ -5,6 +5,7 @@
 
 const router = require('express').Router();
 const warehouseService = require('../services/cpa-warehouse-service');
+const codexManagerService = require('../services/codex-manager-service');
 
 function getOptions(req) {
   return {
@@ -21,6 +22,59 @@ function requireManagementKey(options, res) {
   }
   return true;
 }
+
+function getCodexManagerOptions(req) {
+  return {
+    baseUrl: req.body?.baseUrl || req.query?.baseUrl,
+    rpcToken: req.body?.rpcToken || req.query?.rpcToken,
+    webPassword: req.body?.webPassword || req.query?.webPassword,
+    webUsername: req.body?.webUsername || req.query?.webUsername,
+    accountIds: req.body?.accountIds,
+    maxItems: req.body?.maxItems || req.query?.maxItems,
+  };
+}
+
+function requireCodexManagerRpcToken(options, res) {
+  if (!String(options.rpcToken || '').trim()) {
+    res.status(400).json({ success: false, error: '缺少 Codex-Manager RPC Token' });
+    return false;
+  }
+  return true;
+}
+
+/**
+ * POST /api/warehouse/codex-manager/scan-success - 扫描本地可导入 Codex-Manager 的成功账号
+ */
+router.post('/warehouse/codex-manager/scan-success', (req, res) => {
+  try {
+    const options = getCodexManagerOptions(req);
+    const result = codexManagerService.scanSuccessfulSessions(options);
+    res.json({
+      success: true,
+      ...result,
+    });
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message });
+  }
+});
+
+/**
+ * POST /api/warehouse/codex-manager/check - 检查 Codex-Manager RPC 连通性
+ */
+router.post('/warehouse/codex-manager/check', async (req, res) => {
+  try {
+    const options = getCodexManagerOptions(req);
+    if (!requireCodexManagerRpcToken(options, res)) return;
+
+    const result = await codexManagerService.checkConnection(options);
+    res.json({
+      success: true,
+      ...result,
+    });
+  } catch (err) {
+    res.status(err.status || 400).json({ success: false, error: err.message });
+  }
+});
 
 /**
  * POST /api/warehouse/cpa/scan-401 - 扫描 CPA 401 凭证
@@ -53,6 +107,24 @@ router.post('/warehouse/cpa/repair-401', async (req, res) => {
       if (broadcast) broadcast(event);
     });
 
+    res.json({
+      success: true,
+      ...result,
+    });
+  } catch (err) {
+    res.status(err.status || 400).json({ success: false, error: err.message });
+  }
+});
+
+/**
+ * POST /api/warehouse/codex-manager/import-success - 导入已登录成功账号到 Codex-Manager
+ */
+router.post('/warehouse/codex-manager/import-success', async (req, res) => {
+  try {
+    const options = getCodexManagerOptions(req);
+    if (!requireCodexManagerRpcToken(options, res)) return;
+
+    const result = await codexManagerService.importSuccessfulSessions(options);
     res.json({
       success: true,
       ...result,

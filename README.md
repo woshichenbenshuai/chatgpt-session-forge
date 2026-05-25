@@ -19,6 +19,7 @@
 - sub2api 导出：生成包含 `accounts` 数组的聚合 JSON
 - Cockpit 导出：生成 `cockpit-tools` 可直接导入的扁平 Codex token JSON 数组
 - CPA 仓管：扫描 CLIProxyAPI 401 凭证，自动重登获取新 CPA，封号时删除旧凭证
+- Codex-Manager 对接：把本地已登录成功的 ChatGPT Session 批量导入 Codex-Manager 账号池
 - 支持粘贴原始 `https://chatgpt.com/api/auth/session` JSON 并转换
 - 支持通过环境变量或 Windows 系统代理配置后端出站代理
 
@@ -215,6 +216,26 @@ Cockpit 导出采用 `cockpit-tools` 当前导入逻辑支持的扁平 Codex tok
 - 管理密钥，对应 CLIProxyAPI 管理 API 的 `Authorization: Bearer <key>`
 
 本功能只会自动处理 `status/status_message` 中包含 `401` 或 `unauthorized` 的凭证。其他异常会跳过或记录失败，避免误删。
+
+## Codex-Manager 对接
+
+“仓管对接”页支持把本工具已登录成功的 ChatGPT Session 直接导入 Codex-Manager。
+
+需要填写：
+
+- Codex-Manager 地址，例如 `http://localhost:17000`
+- RPC Token，对应 Codex-Manager 的 `codexmanager.rpc-token`
+- Web 访问密码：如果 Codex-Manager Web 后台启用了访问密码，需要填写；如果直接填 service 端 `/rpc` 地址则不需要
+
+Docker 部署时，如果 Codex-Manager 跑在宿主机 `17000` 端口，地址通常填写：
+
+```text
+http://host.docker.internal:17000
+```
+
+如果你直接对接 Codex-Manager service 端 RPC，例如 `http://host.docker.internal:48760/rpc`，则只需要 RPC Token，不走 Web 后台密码。
+
+底层调用 Codex-Manager 的 JSON-RPC `account/import`，导入内容等价于把 `https://chatgpt.com/api/auth/session` JSON 粘贴到 Codex-Manager 批量导入。
 
 ## 外部邮箱 Provider
 

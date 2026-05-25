@@ -6,7 +6,11 @@
 let _warehouseRows = [];
 let _warehouseAutoTimer = null;
 let _warehouseBusy = false;
+let _codexManagerRows = [];
+let _codexManagerAutoTimer = null;
+let _codexManagerBusy = false;
 const CPA_WAREHOUSE_SETTINGS_KEY = 'cpaWarehouseSettings';
+const CODEX_MANAGER_SETTINGS_KEY = 'codexManagerWarehouseSettings';
 const WAREHOUSE_LOGGABLE_LOGIN_STATUSES = new Set([
   'login_start',
   'identifier',
@@ -21,6 +25,16 @@ function getCpaWarehousePayload() {
     baseUrl: document.getElementById('cpaBaseUrl').value.trim(),
     managementKey: document.getElementById('cpaManagementKey').value.trim(),
     maxItems: parseInt(document.getElementById('cpaMaxItems').value, 10) || 20,
+  };
+}
+
+function getCodexManagerPayload() {
+  return {
+    baseUrl: document.getElementById('codexManagerBaseUrl').value.trim(),
+    rpcToken: document.getElementById('codexManagerRpcToken').value.trim(),
+    webPassword: document.getElementById('codexManagerWebPassword').value.trim(),
+    webUsername: document.getElementById('codexManagerWebUsername').value.trim(),
+    maxItems: parseInt(document.getElementById('codexManagerMaxItems').value, 10) || 1000,
   };
 }
 
@@ -39,6 +53,23 @@ function loadCpaWarehouseSettings() {
   document.getElementById('cpaAutoToggle').checked = Boolean(settings.autoEnabled);
 }
 
+function loadCodexManagerSettings() {
+  let settings = {};
+  try {
+    settings = JSON.parse(localStorage.getItem(CODEX_MANAGER_SETTINGS_KEY) || '{}');
+  } catch {
+    settings = {};
+  }
+
+  if (settings.baseUrl) document.getElementById('codexManagerBaseUrl').value = settings.baseUrl;
+  if (settings.rpcToken) document.getElementById('codexManagerRpcToken').value = settings.rpcToken;
+  if (settings.webPassword) document.getElementById('codexManagerWebPassword').value = settings.webPassword;
+  if (settings.webUsername) document.getElementById('codexManagerWebUsername').value = settings.webUsername;
+  if (settings.maxItems) document.getElementById('codexManagerMaxItems').value = settings.maxItems;
+  if (settings.autoInterval) document.getElementById('codexManagerAutoInterval').value = settings.autoInterval;
+  document.getElementById('codexManagerAutoToggle').checked = Boolean(settings.autoEnabled);
+}
+
 function saveCpaWarehouseSettings() {
   const settings = {
     baseUrl: document.getElementById('cpaBaseUrl')?.value.trim() || '',
@@ -48,6 +79,19 @@ function saveCpaWarehouseSettings() {
     autoInterval: document.getElementById('cpaAutoInterval')?.value || '5',
   };
   localStorage.setItem(CPA_WAREHOUSE_SETTINGS_KEY, JSON.stringify(settings));
+}
+
+function saveCodexManagerSettings() {
+  const settings = {
+    baseUrl: document.getElementById('codexManagerBaseUrl')?.value.trim() || '',
+    rpcToken: document.getElementById('codexManagerRpcToken')?.value.trim() || '',
+    webPassword: document.getElementById('codexManagerWebPassword')?.value.trim() || '',
+    webUsername: document.getElementById('codexManagerWebUsername')?.value.trim() || '',
+    maxItems: document.getElementById('codexManagerMaxItems')?.value || '1000',
+    autoEnabled: Boolean(document.getElementById('codexManagerAutoToggle')?.checked),
+    autoInterval: document.getElementById('codexManagerAutoInterval')?.value || '10',
+  };
+  localStorage.setItem(CODEX_MANAGER_SETTINGS_KEY, JSON.stringify(settings));
 }
 
 function validateCpaWarehousePayload(payload) {
@@ -62,6 +106,18 @@ function validateCpaWarehousePayload(payload) {
   return true;
 }
 
+function validateCodexManagerPayload(payload) {
+  if (!payload.baseUrl) {
+    showToast('请填写 Codex-Manager 地址', 'warning');
+    return false;
+  }
+  if (!payload.rpcToken) {
+    showToast('请填写 Codex-Manager RPC Token', 'warning');
+    return false;
+  }
+  return true;
+}
+
 function getCpaAutoIntervalMs() {
   const minutes = parseInt(document.getElementById('cpaAutoInterval')?.value, 10) || 5;
   return Math.max(1, Math.min(1440, minutes)) * 60 * 1000;
@@ -71,12 +127,199 @@ function isCpaAutoEnabled() {
   return Boolean(document.getElementById('cpaAutoToggle')?.checked);
 }
 
+function getCodexManagerAutoIntervalMs() {
+  const minutes = parseInt(document.getElementById('codexManagerAutoInterval')?.value, 10) || 10;
+  return Math.max(1, Math.min(1440, minutes)) * 60 * 1000;
+}
+
+function isCodexManagerAutoEnabled() {
+  return Boolean(document.getElementById('codexManagerAutoToggle')?.checked);
+}
+
 function setWarehouseConnectionState(state, text) {
   const pill = document.getElementById('cpaConnectionStatus');
   const label = document.getElementById('cpaConnectionText');
   if (!pill || !label) return;
   pill.className = `warehouse-status-pill ${state || 'idle'}`;
   label.textContent = text || '未连接';
+}
+
+function setCodexManagerState(state, text) {
+  const pill = document.getElementById('codexManagerStatus');
+  const label = document.getElementById('codexManagerStatusText');
+  if (!pill || !label) return;
+  pill.className = `warehouse-status-pill ${state || 'idle'}`;
+  label.textContent = text || '未连接';
+}
+
+function addCodexManagerLog(message, type = 'info') {
+  const logList = document.getElementById('codexManagerLogList');
+  if (!logList) return;
+
+  const now = new Date();
+  const time = now.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  const entry = document.createElement('div');
+  entry.className = 'log-entry';
+  entry.innerHTML = `
+    <span class="log-time">${time}</span>
+    <span class="log-type ${type}">${type.toUpperCase()}</span>
+    <span class="log-message">${escapeHtml(message)}</span>
+  `;
+  logList.prepend(entry);
+  while (logList.children.length > 200) logList.removeChild(logList.lastChild);
+}
+
+function updateCodexManagerStats(summary = {}) {
+  document.getElementById('cmStatLocalSuccess').textContent = summary.successful ?? summary.total ?? 0;
+  document.getElementById('cmStatReady').textContent = summary.ready ?? summary.imported ?? 0;
+  document.getElementById('cmStatImported').textContent = summary.imported ?? summary.created ?? 0;
+  document.getElementById('cmStatFailed').textContent = summary.failed ?? summary.invalid ?? 0;
+}
+
+function formatCodexManagerAction(action) {
+  const labels = {
+    ready: '可导入',
+    invalid: '无效',
+    imported: '已导入',
+    failed: '导入失败',
+    skipped: '已跳过',
+  };
+  return labels[action] || action || '-';
+}
+
+function renderCodexManagerRows(rows) {
+  const tbody = document.getElementById('codexManagerTableBody');
+  if (!tbody) return;
+
+  if (!rows || rows.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="4"><div class="empty-state" style="padding:40px 20px"><p>没有可导入的成功账号</p></div></td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = rows.map(row => {
+    const message = row.message || '-';
+    const action = formatCodexManagerAction(row.action || row.status || 'ready');
+    const okClass = row.ok === true ? 'warehouse-ok' : row.ok === false ? 'warehouse-bad' : '';
+    return `<tr>
+      <td title="${escapeAttr(row.email || '')}">${escapeHtml(row.email || '-')}</td>
+      <td title="${escapeAttr(row.accountId || '')}">${escapeHtml(row.accountId || '-')}</td>
+      <td>${escapeHtml(row.planType || '-')}</td>
+      <td class="${okClass}" title="${escapeAttr(message)}">${escapeHtml(action)} · ${escapeHtml(message)}</td>
+    </tr>`;
+  }).join('');
+}
+
+async function checkCodexManagerConnection() {
+  saveCodexManagerSettings();
+  const payload = getCodexManagerPayload();
+  if (!validateCodexManagerPayload(payload)) return;
+
+  const btn = document.getElementById('btnCodexManagerCheck');
+  setButtonLoading(btn, true);
+  setCodexManagerState('running', '连接中');
+  try {
+    const res = await fetch('/api/warehouse/codex-manager/check', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (!data.success) throw new Error(data.error || '连接失败');
+
+    setCodexManagerState('connected', `已连接 · ${data.accountTotal || 0} 个账号`);
+    addCodexManagerLog(`连接成功: ${data.rpcUrl || payload.baseUrl}，Codex-Manager 当前账号 ${data.accountTotal || 0} 个`, 'success');
+    showToast('Codex-Manager 连接成功', 'success');
+  } catch (err) {
+    setCodexManagerState('error', '连接失败');
+    addCodexManagerLog('连接失败: ' + err.message, 'error');
+    showToast('Codex-Manager 连接失败: ' + err.message, 'error');
+  } finally {
+    setButtonLoading(btn, false);
+  }
+}
+
+async function scanCodexManagerCandidates(options = {}) {
+  saveCodexManagerSettings();
+  const payload = getCodexManagerPayload();
+
+  const btn = document.getElementById('btnCodexManagerScan');
+  if (!options.silent) setButtonLoading(btn, true);
+  setCodexManagerState('running', options.auto ? '自动扫描中' : '扫描中');
+  try {
+    const res = await fetch('/api/warehouse/codex-manager/scan-success', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (!data.success) throw new Error(data.error || '扫描失败');
+
+    _codexManagerRows = data.candidates || [];
+    renderCodexManagerRows(_codexManagerRows);
+    updateCodexManagerStats(data);
+    addCodexManagerLog(`扫描完成: 本地成功 ${data.successful || 0} 个，可导入 ${data.ready || 0} 个，无效 ${data.invalid || 0} 个`, data.ready ? 'success' : 'warning');
+    setCodexManagerState('connected', `候选 ${data.ready || 0}`);
+    if (!options.silent) showToast(`发现 ${data.ready || 0} 个可导入账号`, data.ready ? 'success' : 'warning');
+    return data;
+  } catch (err) {
+    setCodexManagerState('error', '扫描失败');
+    addCodexManagerLog('扫描失败: ' + err.message, 'error');
+    if (!options.silent) showToast('Codex-Manager 扫描失败: ' + err.message, 'error');
+    return null;
+  } finally {
+    if (!options.silent) setButtonLoading(btn, false);
+  }
+}
+
+async function importCodexManagerSuccessAccounts(options = {}) {
+  saveCodexManagerSettings();
+  const payload = getCodexManagerPayload();
+  if (!validateCodexManagerPayload(payload)) return;
+  if (_codexManagerBusy) {
+    if (!options.silent) showToast('Codex-Manager 导入正在处理中', 'warning');
+    return;
+  }
+
+  const btn = document.getElementById('btnCodexManagerImport');
+  _codexManagerBusy = true;
+  if (!options.silent) setButtonLoading(btn, true);
+  setCodexManagerState('running', options.auto ? '自动导入中' : '导入中');
+  try {
+    const res = await fetch('/api/warehouse/codex-manager/import-success', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (!data.success) throw new Error(data.error || '导入失败');
+
+    const result = data.result || {};
+    const created = result.created ?? 0;
+    const updated = result.updated ?? 0;
+    const failed = result.failed ?? 0;
+    const imported = data.imported ?? 0;
+    _codexManagerRows = data.rows || data.candidates || [];
+    renderCodexManagerRows(_codexManagerRows);
+    updateCodexManagerStats({
+      total: data.total || 0,
+      ready: imported,
+      imported: created + updated,
+      failed,
+    });
+    const message = imported > 0
+      ? `Codex-Manager 导入完成: 新增 ${created}，更新 ${updated}，失败 ${failed}`
+      : (data.message || '没有可导入账号');
+    addCodexManagerLog(message, failed ? 'warning' : 'success');
+    if (!options.silent) showToast(message, failed ? 'warning' : 'success');
+    setCodexManagerState(failed ? 'error' : 'connected', failed ? `失败 ${failed}` : `已导入 ${imported}`);
+  } catch (err) {
+    if (!options.silent) showToast('Codex-Manager 导入失败: ' + err.message, 'error');
+    addCodexManagerLog('导入失败: ' + err.message, 'error');
+    setCodexManagerState('error', '导入失败');
+  } finally {
+    _codexManagerBusy = false;
+    if (!options.silent) setButtonLoading(btn, false);
+  }
 }
 
 async function scanCpa401() {
@@ -206,6 +449,53 @@ function restartCpaAutoWarehouseIfNeeded() {
   startCpaAutoWarehouse();
 }
 
+function stopCodexManagerAutoImport(reason = 'Codex-Manager 自动导入已关闭') {
+  if (_codexManagerAutoTimer) {
+    clearInterval(_codexManagerAutoTimer);
+    _codexManagerAutoTimer = null;
+  }
+  setCodexManagerState('idle', '未连接');
+  addCodexManagerLog(reason, 'info');
+}
+
+function startCodexManagerAutoImport() {
+  saveCodexManagerSettings();
+  if (_codexManagerAutoTimer) {
+    clearInterval(_codexManagerAutoTimer);
+    _codexManagerAutoTimer = null;
+  }
+
+  const payload = getCodexManagerPayload();
+  if (!validateCodexManagerPayload(payload)) {
+    document.getElementById('codexManagerAutoToggle').checked = false;
+    saveCodexManagerSettings();
+    setCodexManagerState('idle', '未连接');
+    return;
+  }
+
+  const intervalMs = getCodexManagerAutoIntervalMs();
+  const minutes = Math.round(intervalMs / 60000);
+  setCodexManagerState('running', '自动导入中');
+  addCodexManagerLog(`自动导入已开启: 每 ${minutes} 分钟扫描并导入成功账号`, 'success');
+  importCodexManagerSuccessAccounts({ auto: true, silent: true });
+  _codexManagerAutoTimer = setInterval(() => {
+    importCodexManagerSuccessAccounts({ auto: true, silent: true });
+  }, intervalMs);
+}
+
+function handleCodexManagerAutoToggle() {
+  saveCodexManagerSettings();
+  const enabled = document.getElementById('codexManagerAutoToggle')?.checked;
+  if (enabled) startCodexManagerAutoImport();
+  else stopCodexManagerAutoImport();
+}
+
+function restartCodexManagerAutoIfNeeded() {
+  saveCodexManagerSettings();
+  if (!isCodexManagerAutoEnabled()) return;
+  startCodexManagerAutoImport();
+}
+
 function renderWarehouseRows(rows) {
   const tbody = document.getElementById('warehouseTableBody');
   if (!tbody) return;
@@ -263,6 +553,7 @@ function onWarehouseEvent(data) {
 
 document.addEventListener('DOMContentLoaded', () => {
   loadCpaWarehouseSettings();
+  loadCodexManagerSettings();
   document.getElementById('btnCpaScan401')?.addEventListener('click', scanCpa401);
   document.getElementById('btnCpaRepair401')?.addEventListener('click', () => repairCpa401());
   document.getElementById('cpaAutoToggle')?.addEventListener('change', handleCpaAutoToggle);
@@ -274,6 +565,28 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('cpaManagementKey')?.addEventListener('input', saveCpaWarehouseSettings);
   document.getElementById('cpaMaxItems')?.addEventListener('input', saveCpaWarehouseSettings);
   document.getElementById('cpaAutoInterval')?.addEventListener('input', saveCpaWarehouseSettings);
+  document.getElementById('btnCodexManagerImport')?.addEventListener('click', importCodexManagerSuccessAccounts);
+  document.getElementById('btnCodexManagerCheck')?.addEventListener('click', checkCodexManagerConnection);
+  document.getElementById('btnCodexManagerScan')?.addEventListener('click', () => scanCodexManagerCandidates());
+  document.getElementById('btnClearCodexManagerLogs')?.addEventListener('click', () => {
+    document.getElementById('codexManagerLogList').innerHTML = '';
+    addCodexManagerLog('Codex-Manager 日志已清空', 'info');
+  });
+  document.getElementById('codexManagerAutoToggle')?.addEventListener('change', handleCodexManagerAutoToggle);
+  document.getElementById('codexManagerAutoInterval')?.addEventListener('change', restartCodexManagerAutoIfNeeded);
+  document.getElementById('codexManagerBaseUrl')?.addEventListener('input', saveCodexManagerSettings);
+  document.getElementById('codexManagerRpcToken')?.addEventListener('input', saveCodexManagerSettings);
+  document.getElementById('codexManagerWebPassword')?.addEventListener('input', saveCodexManagerSettings);
+  document.getElementById('codexManagerWebUsername')?.addEventListener('input', saveCodexManagerSettings);
+  document.getElementById('codexManagerMaxItems')?.addEventListener('input', saveCodexManagerSettings);
+  document.getElementById('codexManagerBaseUrl')?.addEventListener('change', restartCodexManagerAutoIfNeeded);
+  document.getElementById('codexManagerRpcToken')?.addEventListener('change', restartCodexManagerAutoIfNeeded);
+  document.getElementById('codexManagerWebPassword')?.addEventListener('change', restartCodexManagerAutoIfNeeded);
+  document.getElementById('codexManagerWebUsername')?.addEventListener('change', restartCodexManagerAutoIfNeeded);
+  document.getElementById('codexManagerMaxItems')?.addEventListener('change', saveCodexManagerSettings);
+  document.getElementById('codexManagerAutoInterval')?.addEventListener('input', saveCodexManagerSettings);
   setWarehouseConnectionState('idle', '未连接');
+  setCodexManagerState('idle', '未连接');
   if (document.getElementById('cpaAutoToggle')?.checked) startCpaAutoWarehouse();
+  if (document.getElementById('codexManagerAutoToggle')?.checked) startCodexManagerAutoImport();
 });
