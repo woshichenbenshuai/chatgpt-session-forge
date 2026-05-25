@@ -131,3 +131,18 @@ docker compose up -d --build
 ```bash
 docker inspect --format='{{json .State.Health}}' chatgpt-session-forge
 ```
+
+## 8. 数据目录权限
+
+镜像启动时会自动修正 `/app/data` 和 `/app/logs` 的权限，再降权为 `node` 用户运行应用。修改 Dockerfile 后需要重建镜像：
+
+```bash
+docker compose up -d --build
+```
+
+如果你仍然遇到 `/app/data/accounts.json` permission denied，通常是旧容器或旧镜像未重建，先执行：
+
+```bash
+docker compose down
+docker compose up -d --build
+```
