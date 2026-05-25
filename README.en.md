@@ -51,7 +51,7 @@ cp .env.example .env
 docker compose up -d --build
 ```
 
-By default Compose binds to host `127.0.0.1:16010` only. Use an SSH tunnel, or expose the port only after adding a strong password, reverse proxy protection, and firewall rules.
+By default Compose binds to `0.0.0.0:16010` and allows external access. Set a strong `BASIC_AUTH_PASSWORD` in `.env`, and use firewall rules or a reverse proxy when exposing it.
 
 ## Run
 

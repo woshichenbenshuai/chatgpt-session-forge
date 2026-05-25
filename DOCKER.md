@@ -1,6 +1,6 @@
 # Docker 部署
 
-这个项目已经可以用 Docker / Docker Compose 部署。默认 Compose 只绑定服务器本机 `127.0.0.1:16010`，避免账号密码、refresh token、ChatGPT token 管理界面直接暴露到公网。
+这个项目已经可以用 Docker / Docker Compose 部署。默认 Compose 绑定 `0.0.0.0:16010`，允许外部访问。请务必在 `.env` 中设置强 `BASIC_AUTH_PASSWORD`，并配合服务器防火墙或反向代理使用。
 
 ## 1. 准备服务器
 
@@ -55,13 +55,13 @@ docker compose logs -f
 
 ## 4. 访问方式
 
-默认只能从服务器本机访问：
+默认允许外部访问：
 
 ```text
-http://127.0.0.1:16010
+http://your-server-ip:16010
 ```
 
-推荐用 SSH 隧道在本地打开：
+如果你不想直接暴露公网，也可以把 `docker-compose.yml` 的端口改回 `127.0.0.1:16010:3000`，然后用 SSH 隧道访问：
 
 ```bash
 ssh -L 16010:127.0.0.1:16010 root@your-server-ip
@@ -73,11 +73,11 @@ ssh -L 16010:127.0.0.1:16010 root@your-server-ip
 http://127.0.0.1:16010
 ```
 
-如果你确认已经设置了强密码、服务器防火墙和反向代理鉴权，也可以把 `docker-compose.yml` 里的端口改为：
+如果你通过反向代理统一暴露服务，也可以只绑定服务器本机：
 
 ```yaml
 ports:
-  - "16010:3000"
+  - "127.0.0.1:16010:3000"
 ```
 
 ## 5. 数据持久化
