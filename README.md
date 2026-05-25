@@ -43,6 +43,19 @@
 npm install
 ```
 
+## Docker 部署
+
+项目已内置 `Dockerfile` 和 `docker-compose.yml`，服务器部署参考 [DOCKER.md](DOCKER.md)。
+
+快速启动：
+
+```bash
+cp .env.example .env
+docker compose up -d --build
+```
+
+默认只监听宿主机 `127.0.0.1:3000`。建议通过 SSH 隧道访问，或在配置强密码、反向代理和防火墙后再暴露公网端口。
+
 ## 启动
 
 ```bash

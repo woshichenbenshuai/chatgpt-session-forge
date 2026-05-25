@@ -8,6 +8,7 @@ logs/
 # Local configuration and environment
 .env
 .env.*
+!.env.example
 *.local
 
 # Exported credentials and session artifacts

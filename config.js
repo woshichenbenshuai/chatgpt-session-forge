@@ -1,15 +1,30 @@
+function readIntEnv(name, fallback, min, max) {
+  const value = parseInt(process.env[name], 10);
+  if (!Number.isFinite(value)) return fallback;
+  return Math.max(min, Math.min(max, value));
+}
+
 /**
  * 应用配置
  */
 module.exports = {
-  // 服务器端口
-  port: process.env.PORT || 3000,
+  // 服务器监听地址。Docker 镜像里通过 HOST=0.0.0.0 暴露到容器网络。
+  host: process.env.HOST || '127.0.0.1',
 
-  // 数据文件路径
-  dataFile: './data/accounts.json',
+  // 服务器端口
+  port: readIntEnv('PORT', 3000, 1, 65535),
+
+  // 数据文件路径。Docker 部署时建议挂载 /app/data。
+  dataFile: process.env.DATA_FILE || './data/accounts.json',
+
+  // 可选 Basic Auth。服务器部署建议配置，避免凭证管理界面裸露。
+  basicAuth: {
+    username: process.env.BASIC_AUTH_USERNAME || '',
+    password: process.env.BASIC_AUTH_PASSWORD || '',
+  },
 
   // 并发控制
-  concurrency: 8,
+  concurrency: readIntEnv('CONCURRENCY', 8, 1, 20),
 
   // IMAP 配置
   imap: {
@@ -35,5 +50,5 @@ module.exports = {
   },
 
   // Node 后端出站代理。留空时自动读取 Windows 当前用户代理。
-  proxy: process.env.HTTPS_PROXY || process.env.HTTP_PROXY || process.env.ALL_PROXY || 'auto',
+  proxy: process.env.OUTBOUND_PROXY || process.env.HTTPS_PROXY || process.env.HTTP_PROXY || process.env.ALL_PROXY || 'auto',
 };

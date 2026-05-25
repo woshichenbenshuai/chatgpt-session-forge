@@ -40,6 +40,19 @@ It can import Outlook accounts, fetch OpenAI verification codes through IMAP or 
 npm install
 ```
 
+## Docker Deployment
+
+The project includes `Dockerfile` and `docker-compose.yml`. See [DOCKER.md](DOCKER.md) for server deployment notes.
+
+Quick start:
+
+```bash
+cp .env.example .env
+docker compose up -d --build
+```
+
+By default Compose binds to host `127.0.0.1:3000` only. Use an SSH tunnel, or expose the port only after adding a strong password, reverse proxy protection, and firewall rules.
+
 ## Run
 
 ```bash

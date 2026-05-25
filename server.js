@@ -1,6 +1,7 @@
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
 const { execFileSync } = require('child_process');
 const { ProxyAgent, setGlobalDispatcher } = require('undici');
 const config = require('./config');
@@ -8,6 +9,7 @@ const config = require('./config');
 setupOutboundProxy();
 
 const app = express();
+app.disable('x-powered-by');
 
 function setupOutboundProxy() {
   const proxyUrl = resolveProxyUrl(config.proxy);
@@ -59,9 +61,57 @@ function maskProxyUrl(value) {
   return String(value).replace(/:\/\/([^:@/]+):([^@/]+)@/, '://$1:***@');
 }
 
+function basicAuthEnabled() {
+  return Boolean(config.basicAuth?.username && config.basicAuth?.password);
+}
+
+function safeEqual(left, right) {
+  const a = Buffer.from(String(left || ''));
+  const b = Buffer.from(String(right || ''));
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
+}
+
+function requestBasicAuth(res) {
+  res.setHeader('WWW-Authenticate', 'Basic realm="ChatGPT Session Forge", charset="UTF-8"');
+  return res.status(401).send('Authentication required');
+}
+
+function basicAuth(req, res, next) {
+  if (!basicAuthEnabled()) return next();
+
+  const header = String(req.headers.authorization || '');
+  if (!header.startsWith('Basic ')) return requestBasicAuth(res);
+
+  let decoded = '';
+  try {
+    decoded = Buffer.from(header.slice(6), 'base64').toString('utf8');
+  } catch {
+    return requestBasicAuth(res);
+  }
+
+  const sep = decoded.indexOf(':');
+  const username = sep >= 0 ? decoded.slice(0, sep) : '';
+  const password = sep >= 0 ? decoded.slice(sep + 1) : '';
+
+  if (
+    safeEqual(username, config.basicAuth.username) &&
+    safeEqual(password, config.basicAuth.password)
+  ) {
+    return next();
+  }
+
+  return requestBasicAuth(res);
+}
+
 // ==================== 中间件 ====================
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
+
+app.get('/api/health', (req, res) => {
+  res.json({ success: true, status: 'ok', time: new Date().toISOString() });
+});
+
+app.use(basicAuth);
 
 // 静态文件
 app.use(express.static(path.join(__dirname, 'public'), {
@@ -75,11 +125,11 @@ app.use(express.static(path.join(__dirname, 'public'), {
 }));
 
 // ==================== 确保数据目录存在 ====================
-const dataDir = path.join(__dirname, 'data');
+const dataFile = path.resolve(__dirname, config.dataFile);
+const dataDir = path.dirname(dataFile);
 if (!fs.existsSync(dataDir)) {
   fs.mkdirSync(dataDir, { recursive: true });
 }
-const dataFile = path.join(__dirname, config.dataFile);
 if (!fs.existsSync(dataFile)) {
   fs.writeFileSync(dataFile, '[]', 'utf-8');
 }
@@ -154,18 +204,19 @@ app.use((err, req, res, next) => {
 });
 
 // ==================== 启动服务 ====================
-app.listen(config.port, () => {
+app.listen(config.port, config.host, () => {
   console.log('');
   console.log('╔══════════════════════════════════════════╗');
   console.log('║   ChatGPT 自动登录凭证管理系统          ║');
   console.log('║                                          ║');
-  console.log(`║   🌐 http://localhost:${config.port}              ║`);
+  console.log(`║   🌐 http://${config.host}:${config.port}              ║`);
   console.log('║                                          ║');
   console.log('║   功能：                                 ║');
   console.log('║   📬 Outlook 双协议取件                  ║');
   console.log('║   🤖 ChatGPT 自动登录                   ║');
   console.log('║   🔄 Session → CPA / sub2api 转换       ║');
   console.log('║   📦 CPA 401 自动仓管                  ║');
+  console.log(`║   🔐 Basic Auth ${basicAuthEnabled() ? 'enabled ' : 'disabled'}              ║`);
   console.log('╚══════════════════════════════════════════╝');
   console.log('');
 });
