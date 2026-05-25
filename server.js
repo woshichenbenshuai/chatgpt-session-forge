@@ -103,6 +103,81 @@ function basicAuth(req, res, next) {
   return requestBasicAuth(res);
 }
 
+function normalizeOrigin(value) {
+  try {
+    const url = new URL(String(value || '').trim());
+    if (!['http:', 'https:'].includes(url.protocol)) return '';
+    return `${url.protocol}//${url.host}`.toLowerCase();
+  } catch {
+    return '';
+  }
+}
+
+function firstHeaderValue(value) {
+  return String(Array.isArray(value) ? value[0] : value || '').split(',')[0].trim();
+}
+
+function requestHosts(req) {
+  return [
+    firstHeaderValue(req.headers['x-forwarded-host']),
+    firstHeaderValue(req.headers.host),
+  ]
+    .map(value => value.toLowerCase())
+    .filter(Boolean);
+}
+
+function trustedOrigins() {
+  return new Set((config.security?.trustedOrigins || [])
+    .map(normalizeOrigin)
+    .filter(Boolean));
+}
+
+function isAllowedBrowserOrigin(req, value) {
+  const origin = normalizeOrigin(value);
+  if (!origin) return false;
+
+  const explicit = trustedOrigins();
+  if (explicit.has(origin)) return true;
+
+  const originUrl = new URL(origin);
+  return requestHosts(req).includes(originUrl.host.toLowerCase());
+}
+
+function rejectCrossSite(req, res, reason) {
+  console.warn(`[CSRF] blocked ${req.method} ${req.originalUrl}: ${reason}`);
+  return res.status(403).json({
+    success: false,
+    error: 'CSRF origin check failed',
+  });
+}
+
+function csrfOriginGuard(req, res, next) {
+  if (!config.security?.csrfOriginCheck) return next();
+  if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) return next();
+
+  const fetchSite = String(req.headers['sec-fetch-site'] || '').trim().toLowerCase();
+  if (fetchSite && !['same-origin', 'same-site', 'none'].includes(fetchSite)) {
+    return rejectCrossSite(req, res, `sec-fetch-site=${fetchSite}`);
+  }
+
+  const origin = firstHeaderValue(req.headers.origin);
+  if (origin) {
+    return isAllowedBrowserOrigin(req, origin)
+      ? next()
+      : rejectCrossSite(req, res, `origin=${origin}`);
+  }
+
+  const referer = firstHeaderValue(req.headers.referer);
+  if (referer) {
+    return isAllowedBrowserOrigin(req, referer)
+      ? next()
+      : rejectCrossSite(req, res, `referer=${referer}`);
+  }
+
+  // Non-browser clients often omit Origin/Referer. Browser cross-site POSTs send Origin.
+  return next();
+}
+
 // ==================== 中间件 ====================
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
@@ -111,6 +186,7 @@ app.get('/api/health', (req, res) => {
   res.json({ success: true, status: 'ok', time: new Date().toISOString() });
 });
 
+app.use(csrfOriginGuard);
 app.use(basicAuth);
 
 // 静态文件

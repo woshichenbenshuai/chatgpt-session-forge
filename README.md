@@ -55,7 +55,7 @@ cp .env.example .env
 docker compose up -d --build
 ```
 
-默认监听 `0.0.0.0:16010`，允许外部访问。请先在 `.env` 中设置强 `BASIC_AUTH_PASSWORD`，并配合服务器防火墙或反向代理使用。
+默认监听 `0.0.0.0:16010`，允许外部访问。请先在 `.env` 中设置强 `BASIC_AUTH_PASSWORD`，并配合服务器防火墙或反向代理使用。`CSRF_ORIGIN_CHECK` 默认开启；如果通过反向代理域名访问，可在 `TRUSTED_ORIGINS` 中加入允许的来源。
 
 ## 启动
 

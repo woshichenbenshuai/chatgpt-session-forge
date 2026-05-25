@@ -14,6 +14,8 @@ services:
       OUTBOUND_PROXY: ${OUTBOUND_PROXY:-auto}
       BASIC_AUTH_USERNAME: ${BASIC_AUTH_USERNAME:-}
       BASIC_AUTH_PASSWORD: ${BASIC_AUTH_PASSWORD:-}
+      CSRF_ORIGIN_CHECK: ${CSRF_ORIGIN_CHECK:-true}
+      TRUSTED_ORIGINS: ${TRUSTED_ORIGINS:-}
     volumes:
       - ./data:/app/data
       - ./logs:/app/logs

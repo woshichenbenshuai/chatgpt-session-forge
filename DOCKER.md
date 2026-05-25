@@ -26,6 +26,9 @@ nano .env
 ```env
 BASIC_AUTH_USERNAME=admin
 BASIC_AUTH_PASSWORD=replace-with-a-strong-password
+CSRF_ORIGIN_CHECK=true
+# 如果通过域名或反向代理访问，按需填写允许的外部来源，多个用英文逗号分隔。
+# TRUSTED_ORIGINS=https://your-domain.example,http://your-server-ip:16010
 ```
 
 如果服务器出站访问 ChatGPT/OpenAI/Outlook 需要代理，可以配置：

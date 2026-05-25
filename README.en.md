@@ -52,7 +52,7 @@ cp .env.example .env
 docker compose up -d --build
 ```
 
-By default Compose binds to `0.0.0.0:16010` and allows external access. Set a strong `BASIC_AUTH_PASSWORD` in `.env`, and use firewall rules or a reverse proxy when exposing it.
+By default Compose binds to `0.0.0.0:16010` and allows external access. Set a strong `BASIC_AUTH_PASSWORD` in `.env`, and use firewall rules or a reverse proxy when exposing it. `CSRF_ORIGIN_CHECK` is enabled by default; add reverse-proxy domains to `TRUSTED_ORIGINS` when needed.
 
 ## Run
 

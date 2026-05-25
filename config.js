@@ -4,6 +4,19 @@ function readIntEnv(name, fallback, min, max) {
   return Math.max(min, Math.min(max, value));
 }
 
+function readBoolEnv(name, fallback) {
+  const raw = process.env[name];
+  if (raw === undefined || raw === null || raw === '') return fallback;
+  return !['0', 'false', 'no', 'off'].includes(String(raw).trim().toLowerCase());
+}
+
+function readListEnv(name) {
+  return String(process.env[name] || '')
+    .split(',')
+    .map(item => item.trim())
+    .filter(Boolean);
+}
+
 /**
  * 应用配置
  */
@@ -21,6 +34,11 @@ module.exports = {
   basicAuth: {
     username: process.env.BASIC_AUTH_USERNAME || '',
     password: process.env.BASIC_AUTH_PASSWORD || '',
+  },
+
+  security: {
+    csrfOriginCheck: readBoolEnv('CSRF_ORIGIN_CHECK', true),
+    trustedOrigins: readListEnv('TRUSTED_ORIGINS'),
   },
 
   // 并发控制
