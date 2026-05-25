@@ -35,6 +35,7 @@ function getCodexManagerPayload() {
     webPassword: document.getElementById('codexManagerWebPassword').value.trim(),
     webUsername: document.getElementById('codexManagerWebUsername').value.trim(),
     maxItems: parseInt(document.getElementById('codexManagerMaxItems').value, 10) || 1000,
+    skipExistingByEmail: document.getElementById('codexManagerSkipExisting')?.checked !== false,
   };
 }
 
@@ -67,6 +68,7 @@ function loadCodexManagerSettings() {
   if (settings.webUsername) document.getElementById('codexManagerWebUsername').value = settings.webUsername;
   if (settings.maxItems) document.getElementById('codexManagerMaxItems').value = settings.maxItems;
   if (settings.autoInterval) document.getElementById('codexManagerAutoInterval').value = settings.autoInterval;
+  document.getElementById('codexManagerSkipExisting').checked = settings.skipExistingByEmail !== false;
   document.getElementById('codexManagerAutoToggle').checked = Boolean(settings.autoEnabled);
 }
 
@@ -88,6 +90,7 @@ function saveCodexManagerSettings() {
     webPassword: document.getElementById('codexManagerWebPassword')?.value.trim() || '',
     webUsername: document.getElementById('codexManagerWebUsername')?.value.trim() || '',
     maxItems: document.getElementById('codexManagerMaxItems')?.value || '1000',
+    skipExistingByEmail: document.getElementById('codexManagerSkipExisting')?.checked !== false,
     autoEnabled: Boolean(document.getElementById('codexManagerAutoToggle')?.checked),
     autoInterval: document.getElementById('codexManagerAutoInterval')?.value || '10',
   };
@@ -183,6 +186,8 @@ function formatCodexManagerAction(action) {
     imported: '已导入',
     failed: '导入失败',
     skipped: '已跳过',
+    skipped_existing: '已存在跳过',
+    deduped_local: '本地重复跳过',
   };
   return labels[action] || action || '-';
 }
@@ -298,6 +303,7 @@ async function importCodexManagerSuccessAccounts(options = {}) {
     const updated = result.updated ?? 0;
     const failed = result.failed ?? 0;
     const imported = data.imported ?? 0;
+    const skipped = (data.skippedExisting ?? 0) + (data.dedupedLocal ?? 0);
     _codexManagerRows = data.rows || data.candidates || [];
     renderCodexManagerRows(_codexManagerRows);
     updateCodexManagerStats({
@@ -307,7 +313,7 @@ async function importCodexManagerSuccessAccounts(options = {}) {
       failed,
     });
     const message = imported > 0
-      ? `Codex-Manager 导入完成: 新增 ${created}，更新 ${updated}，失败 ${failed}`
+      ? `Codex-Manager 导入完成: 新增 ${created}，更新 ${updated}，跳过 ${skipped}，失败 ${failed}`
       : (data.message || '没有可导入账号');
     addCodexManagerLog(message, failed ? 'warning' : 'success');
     if (!options.silent) showToast(message, failed ? 'warning' : 'success');
@@ -579,6 +585,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('codexManagerWebPassword')?.addEventListener('input', saveCodexManagerSettings);
   document.getElementById('codexManagerWebUsername')?.addEventListener('input', saveCodexManagerSettings);
   document.getElementById('codexManagerMaxItems')?.addEventListener('input', saveCodexManagerSettings);
+  document.getElementById('codexManagerSkipExisting')?.addEventListener('change', restartCodexManagerAutoIfNeeded);
   document.getElementById('codexManagerBaseUrl')?.addEventListener('change', restartCodexManagerAutoIfNeeded);
   document.getElementById('codexManagerRpcToken')?.addEventListener('change', restartCodexManagerAutoIfNeeded);
   document.getElementById('codexManagerWebPassword')?.addEventListener('change', restartCodexManagerAutoIfNeeded);

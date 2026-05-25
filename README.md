@@ -235,7 +235,7 @@ http://host.docker.internal:17000
 
 如果你直接对接 Codex-Manager service 端 RPC，例如 `http://host.docker.internal:48760/rpc`，则只需要 RPC Token，不走 Web 后台密码。
 
-底层调用 Codex-Manager 的 JSON-RPC `account/import`，导入内容等价于把 `https://chatgpt.com/api/auth/session` JSON 粘贴到 Codex-Manager 批量导入。
+底层调用 Codex-Manager 的 JSON-RPC `account/import`，导入内容等价于把 `https://chatgpt.com/api/auth/session` JSON 粘贴到 Codex-Manager 批量导入。为避免重复账号，导入前会先按本地 `accountId/email` 去重，并默认读取 Codex-Manager 现有账号列表，跳过已存在的同邮箱账号。
 
 ## 外部邮箱 Provider
 

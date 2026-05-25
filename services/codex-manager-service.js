@@ -39,6 +39,24 @@ function normalizeImportLimit(value, fallback) {
   return Math.max(1, Math.min(1000, parseInt(value, 10) || fallback));
 }
 
+function normalizeEmail(value) {
+  return String(value || '').trim().toLowerCase();
+}
+
+function isEnabledOption(value, fallback = true) {
+  if (value === undefined || value === null || value === '') return fallback;
+  if (typeof value === 'boolean') return value;
+  return !['0', 'false', 'no', 'off'].includes(String(value).trim().toLowerCase());
+}
+
+function dedupeKey(row) {
+  const accountId = String(row.item.accountId || row.item.chatgpt_account_id || row.candidate.accountId || '').trim();
+  if (accountId) return `account:${accountId}`;
+  const email = normalizeEmail(row.item.email || row.candidate.email);
+  if (email) return `email:${email}`;
+  return `local:${row.account.id}`;
+}
+
 function selectedRows({ accountIds, maxItems } = {}) {
   const idSet = Array.isArray(accountIds) && accountIds.length > 0
     ? new Set(accountIds.map(String))
@@ -210,11 +228,37 @@ class CodexManagerRpcClient {
       pageSize: 1,
     });
   }
+
+  listAllAccounts() {
+    return this.call('account/list', {});
+  }
 }
 
 function splitSetCookie(raw) {
   if (!raw) return [];
   return String(raw).split(/,(?=[^;,]+=)/g);
+}
+
+function extractAccountItems(result) {
+  if (Array.isArray(result)) return result;
+  if (Array.isArray(result?.items)) return result.items;
+  if (Array.isArray(result?.accounts)) return result.accounts;
+  if (Array.isArray(result?.data)) return result.data;
+  return [];
+}
+
+function collectAccountEmails(result) {
+  return new Set(extractAccountItems(result)
+    .flatMap(account => [
+      account.email,
+      account.label,
+      account.name,
+      account.meta?.email,
+      account.meta?.label,
+      account.profile?.email,
+    ])
+    .map(normalizeEmail)
+    .filter(Boolean));
 }
 
 async function importSuccessfulSessions(options = {}) {
@@ -256,9 +300,75 @@ async function importSuccessfulSessions(options = {}) {
   }
 
   const client = new CodexManagerRpcClient(options);
-  const result = await client.importAccounts(importableRows.map(row => row.item));
+  const rowOutcomes = new Map();
+  const seenKeys = new Set();
+  let dedupedLocal = 0;
+  let importRows = [];
+
+  for (const row of importableRows) {
+    const key = dedupeKey(row);
+    if (seenKeys.has(key)) {
+      dedupedLocal += 1;
+      rowOutcomes.set(row.index, {
+        action: 'deduped_local',
+        ok: true,
+        message: '本地候选重复，已跳过',
+      });
+      continue;
+    }
+    seenKeys.add(key);
+    importRows.push(row);
+  }
+
+  let skippedExisting = 0;
+  if (isEnabledOption(options.skipExistingByEmail, true)) {
+    const existingEmails = collectAccountEmails(await client.listAllAccounts());
+    importRows = importRows.filter(row => {
+      const email = normalizeEmail(row.item.email || row.candidate.email);
+      if (!email || !existingEmails.has(email)) return true;
+
+      skippedExisting += 1;
+      rowOutcomes.set(row.index, {
+        action: 'skipped_existing',
+        ok: true,
+        message: 'Codex-Manager 已存在同邮箱账号',
+      });
+      return false;
+    });
+  }
+
+  if (importRows.length === 0) {
+    return {
+      total: rows.length,
+      imported: 0,
+      skippedExisting,
+      dedupedLocal,
+      candidates,
+      rows: candidates.map((candidate, index) => ({
+        ...candidate,
+        ...(rowOutcomes.get(index) || {
+          action: candidate.hasAccessToken ? 'skipped' : 'skipped',
+          ok: !candidate.hasAccessToken ? false : true,
+          message: candidate.hasAccessToken ? '没有需要提交的账号' : candidate.message,
+        }),
+      })),
+      result: null,
+      message: skippedExisting || dedupedLocal
+        ? `没有新账号需要导入，已跳过 ${skippedExisting + dedupedLocal} 个重复账号`
+        : '没有可导入账号',
+    };
+  }
+
+  const result = await client.importAccounts(importRows.map(row => row.item));
   const errors = new Map((result.errors || []).map(error => [Number(error.index), error.message || '导入失败']));
   const rowsResult = candidates.map((candidate, index) => {
+    const existingOutcome = rowOutcomes.get(index);
+    if (existingOutcome) {
+      return {
+        ...candidate,
+        ...existingOutcome,
+      };
+    }
     if (!candidate.hasAccessToken) {
       return {
         ...candidate,
@@ -267,7 +377,15 @@ async function importSuccessfulSessions(options = {}) {
         message: candidate.message,
       };
     }
-    const importIndex = importableRows.findIndex(row => row.index === index) + 1;
+    const importIndex = importRows.findIndex(row => row.index === index) + 1;
+    if (importIndex < 1) {
+      return {
+        ...candidate,
+        action: 'skipped',
+        ok: true,
+        message: '没有提交到 Codex-Manager',
+      };
+    }
     const error = errors.get(importIndex);
     return {
       ...candidate,
@@ -279,7 +397,9 @@ async function importSuccessfulSessions(options = {}) {
 
   return {
     total: rows.length,
-    imported: importableRows.length,
+    imported: importRows.length,
+    skippedExisting,
+    dedupedLocal,
     candidates,
     rows: rowsResult,
     result,

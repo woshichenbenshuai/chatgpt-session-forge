@@ -406,6 +406,11 @@
               <input type="number" id="codexManagerMaxItems" class="input warehouse-input warehouse-limit-input" min="1" max="1000" value="1000" placeholder="最多导入数量" />
             </div>
             <label class="warehouse-auto-toggle">
+              <input type="checkbox" id="codexManagerSkipExisting" checked />
+              <span class="warehouse-toggle-track"><span class="warehouse-toggle-thumb"></span></span>
+              <span>跳过已存在邮箱</span>
+            </label>
+            <label class="warehouse-auto-toggle">
               <input type="checkbox" id="codexManagerAutoToggle" />
               <span class="warehouse-toggle-track"><span class="warehouse-toggle-thumb"></span></span>
               <span>自动导入</span>
@@ -416,7 +421,7 @@
             </div>
           </div>
           <p class="text-muted" style="font-size:0.82rem">
-            Docker 部署时，如果 Codex-Manager 运行在宿主机 <code>17000</code> 端口，这里通常填写 <code>http://host.docker.internal:17000</code>。RPC Token 可从 Codex-Manager 的 <code>codexmanager.rpc-token</code> 文件读取；如果 Web 后台设置了访问密码，也需要填写 Web 访问密码。
+            Docker 部署时，如果 Codex-Manager 运行在宿主机 <code>17000</code> 端口，这里通常填写 <code>http://host.docker.internal:17000</code>。RPC Token 可从 Codex-Manager 的 <code>codexmanager.rpc-token</code> 文件读取；如果 Web 后台设置了访问密码，也需要填写 Web 访问密码。默认会跳过 Codex-Manager 已存在的同邮箱账号，避免重复导入。
           </p>
           <div class="warehouse-stats">
             <div class="stat-card"><div class="stat-value" id="cmStatLocalSuccess">0</div><div class="stat-label">本地成功</div></div>

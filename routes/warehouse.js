@@ -31,6 +31,7 @@ function getCodexManagerOptions(req) {
     webUsername: req.body?.webUsername || req.query?.webUsername,
     accountIds: req.body?.accountIds,
     maxItems: req.body?.maxItems || req.query?.maxItems,
+    skipExistingByEmail: req.body?.skipExistingByEmail ?? req.query?.skipExistingByEmail,
   };
 }
 
